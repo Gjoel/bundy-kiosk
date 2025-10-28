@@ -27,22 +27,24 @@ jobs:
         with:
           node-version: 20
 
-      # Use npm install (works even without package-lock.json)
       - name: Install deps
         run: npm install
 
-      # Build your Vite app. The --if-present avoids failing if "build" is missing.
       - name: Build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_ADMIN_PIN: ${{ secrets.VITE_ADMIN_PIN }}
           VITE_ORG_ID: ${{ secrets.VITE_ORG_ID }}
-        run: npm run build --if-present
+        run: npm run build
 
-      # SPA 404 (prevents refresh 404s)
       - name: Add SPA 404
         run: cp dist/index.html dist/404.html
+
+      - name: Show dist contents
+        run: |
+          echo "== dist =="
+          ls -la dist
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
