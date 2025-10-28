@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,10 +43,12 @@ jobs:
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
 
-      - name: Show dist contents
+      - name: Show dist contents (debug)
         run: |
           echo "== dist =="
           ls -la dist
+          echo "== assets =="
+          ls -la dist/assets || true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
