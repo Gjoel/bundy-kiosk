@@ -11,19 +11,12 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
       - name: Install deps
         run: npm install
-
       - name: Build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
@@ -31,19 +24,14 @@ jobs:
           VITE_ADMIN_PIN: ${{ secrets.VITE_ADMIN_PIN }}
           VITE_ORG_ID: ${{ secrets.VITE_ORG_ID }}
         run: npm run build
-
-      - name: Add SPA 404 + disable Jekyll
+      - name: Pages extras
         run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
-
-      - name: Show local dist (pre-publish)
+      - name: Show local dist (debug)
         run: |
-          echo "== dist =="
-          ls -la dist
-          echo "== dist/assets =="
-          ls -la dist/assets || true
-
+          echo "== dist ==" && ls -la dist
+          echo "== dist/assets ==" && ls -la dist/assets || true
       - name: Publish to gh-pages (orphan, clean)
         uses: peaceiris/actions-gh-pages@v3
         with:
@@ -55,12 +43,9 @@ jobs:
           enable_jekyll: false
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
-
-      - name: Show files on gh-pages branch (post-publish)
+      - name: Show gh-pages contents (debug)
         run: |
           git fetch origin gh-pages:gh-pages
           git checkout gh-pages
-          echo "== gh-pages root =="
-          ls -la
-          echo "== gh-pages/assets =="
-          ls -la assets || true
+          echo "== gh-pages root ==" && ls -la
+          echo "== gh-pages/assets ==" && ls -la assets || true

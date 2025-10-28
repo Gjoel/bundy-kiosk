@@ -11,13 +11,3 @@
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-
-<script>
-  (function () {
-    var wrong = "/bundy-kiosk/";
-    var right = "/Bundy-kiosk/";
-    if (location.pathname.startsWith(wrong)) {
-      location.replace(location.origin + right + location.pathname.slice(wrong.length) + location.search + location.hash);
-    }
-  })();
-</script>
