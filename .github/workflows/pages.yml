@@ -17,7 +17,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,8 +37,10 @@ jobs:
           VITE_ORG_ID: ${{ secrets.VITE_ORG_ID }}
         run: npm run build
 
-      - name: Add SPA 404
-        run: cp dist/index.html dist/404.html
+      - name: Add SPA 404 + disable Jekyll
+        run: |
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
 
       - name: Show dist contents
         run: |
