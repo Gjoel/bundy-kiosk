@@ -5,6 +5,10 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+# IMPORTANT: allow the action to push to the repo
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -33,9 +37,21 @@ jobs:
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
 
+      - name: Show dist contents (debug)
+        run: |
+          echo "== dist =="
+          ls -la dist
+          echo "== assets =="
+          ls -la dist/assets || true
+
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
+          # make the first push an orphan to avoid history issues (prevents exit 128)
+          force_orphan: true
+          # optional but nice:
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
