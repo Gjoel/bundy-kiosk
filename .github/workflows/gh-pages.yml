@@ -5,15 +5,15 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-# IMPORTANT: allow the action to push to the repo
 permissions:
   contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -32,26 +32,35 @@ jobs:
           VITE_ORG_ID: ${{ secrets.VITE_ORG_ID }}
         run: npm run build
 
-      - name: Prepare Pages extras
+      - name: Add SPA 404 + disable Jekyll
         run: |
           cp dist/index.html dist/404.html
           touch dist/.nojekyll
 
-      - name: Show dist contents (debug)
+      - name: Show local dist (pre-publish)
         run: |
           echo "== dist =="
           ls -la dist
-          echo "== assets =="
+          echo "== dist/assets =="
           ls -la dist/assets || true
 
-      - name: Publish to gh-pages
+      - name: Publish to gh-pages (orphan, clean)
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
-          # make the first push an orphan to avoid history issues (prevents exit 128)
           force_orphan: true
-          # optional but nice:
+          keep_files: false
+          enable_jekyll: false
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
+
+      - name: Show files on gh-pages branch (post-publish)
+        run: |
+          git fetch origin gh-pages:gh-pages
+          git checkout gh-pages
+          echo "== gh-pages root =="
+          ls -la
+          echo "== gh-pages/assets =="
+          ls -la assets || true
