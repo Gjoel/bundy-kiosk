@@ -1,7 +1,7 @@
 // src/Admin.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { isAdminUnlocked, checkPinAndUnlock, lockAdmin } from "./adminPin";
+import { isAdminUnlocked, checkPinAndUnlock, lockAdmin } from "./adminPin.js";
 
 /** ====== SCHEMA MAPPING ====== */
 const SCHEMA = {
