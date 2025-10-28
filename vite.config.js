@@ -4,6 +4,6 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  base: "/Bundy-kiosk/",   // <-- EXACTLY your repo path, lower-case if you renamed
+  base: "/bundy-kiosk/",   // <-- EXACTLY your repo path, lower-case if you renamed
   build: { outDir: "dist" }
 });
