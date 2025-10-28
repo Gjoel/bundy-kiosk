@@ -2,6 +2,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { isAdminUnlocked, checkPinAndUnlock, lockAdmin } from "./adminPin.js";
+import { exportCSVAllEmployees } from '../lib/exportCSVAllEmployees'; // adjust path if needed
+
+async function handleExport() {
+  // assume you already have fromDate/toDate (Date objects) in state
+  const start = new Date(fromDate); start.setHours(0,0,0,0);
+  const end = new Date(toDate);     end.setHours(23,59,59,999);
+  await exportCSVAllEmployees(start.toISOString(), end.toISOString(), 'Australia/Sydney');
+}
+
+// in your JSX:
+<button onClick={handleExport}>Export CSV (All Employees)</button>
+
 
 /** ====== SCHEMA MAPPING ====== */
 const SCHEMA = {
