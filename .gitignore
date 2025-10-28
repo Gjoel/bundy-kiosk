@@ -1,0 +1,12 @@
+# dependencies
+node_modules/
+.vite/
+
+# build output
+dist/
+
+# local env (don’t commit your keys)
+.env
+.env.local
+.env.development.local
+.env.production.local
