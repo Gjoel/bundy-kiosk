@@ -2,9 +2,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-
-
-
 /** ====== SCHEMA MAPPING ====== */
 const SCHEMA = {
   employeesTable: "employees",
@@ -26,34 +23,19 @@ const URL = import.meta.env.VITE_SUPABASE_URL;
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(URL, KEY);
 
-function formatNow() {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hm = `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
-  return `${m}/${day}/${y} - ${hm}`;
+function normalizeDir(raw) {
+  const s = String(raw || "").toLowerCase();
+  if (SCHEMA.dirIn.includes(s)) return "in";
+  if (SCHEMA.dirOut.includes(s)) return "out";
+  return undefined;
 }
 
 export default function Kiosk({ onSwitchTab }) {
   const [employees, setEmployees] = useState([]);
   const [statusMap, setStatusMap] = useState({}); // { [empId]: 'in' | 'out' }
   const [q, setQ] = useState("");
-  const [nowStr, setNowStr] = useState(formatNow());
   const [loading, setLoading] = useState(true);
   const [diag, setDiag] = useState("");
-
-  function normalizeDir(raw) {
-    const s = String(raw || "").toLowerCase();
-    if (SCHEMA.dirIn.includes(s)) return "in";
-    if (SCHEMA.dirOut.includes(s)) return "out";
-    return undefined;
-  }
-
-  useEffect(() => {
-    const t = setInterval(() => setNowStr(formatNow()), 30_000);
-    return () => clearInterval(t);
-  }, []);
 
   async function load() {
     setLoading(true);
@@ -144,14 +126,17 @@ export default function Kiosk({ onSwitchTab }) {
         </div>
       )}
 
-      <div className="controls">
+      {/* Toolbar: search (half width), clearer time, quick add employee */}
+      <div className="toolbar">
         <input
-          className="input"
+          className="search-input"
           placeholder="Search your name…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label="Search employees"
         />
-        <div className="pill">{nowStr}</div>
+        <ClockChip />
+        <QuickAddEmployee onAdded={load} />
       </div>
 
       {loading ? (
@@ -182,13 +167,15 @@ export default function Kiosk({ onSwitchTab }) {
     </div>
   );
 }
+
+/* ── Time chip ───────────────────────── */
 function ClockChip() {
   const [text, setText] = useState("");
 
   useEffect(() => {
     const tick = () => {
       const now = new Date();
-      // Example: Wed, 29 Oct • 10:55
+      // Example: Wed 29 Oct 10:55
       const fmt = now.toLocaleString(undefined, {
         weekday: "short",
         day: "2-digit",
@@ -206,6 +193,7 @@ function ClockChip() {
   return <div className="clock" aria-live="polite">{text}</div>;
 }
 
+/* ── Quick add employee ─────────────── */
 function QuickAddEmployee({ onAdded }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -217,11 +205,19 @@ function QuickAddEmployee({ onAdded }) {
     const trimmed = name.trim();
     if (!trimmed) { setErr("Name required"); return; }
     setBusy(true); setErr("");
+
+    const payload = {
+      [SCHEMA.employeeName]: trimmed,
+      [SCHEMA.employeeActive]: true,
+    };
+
     const { error } = await supabase
-      .from("employees")
-      .insert({ name: trimmed, active: true });
+      .from(SCHEMA.employeesTable)
+      .insert(payload);
+
     setBusy(false);
     if (error) { setErr(error.message); return; }
+
     setName(""); setOpen(false);
     if (typeof onAdded === "function") onAdded();
   }
@@ -247,7 +243,11 @@ function QuickAddEmployee({ onAdded }) {
       <button type="submit" className="add-btn" disabled={busy}>
         {busy ? "Saving..." : "Save"}
       </button>
-      <button type="button" className="btn-ghost" onClick={() => { setOpen(false); setName(""); }}>
+      <button
+        type="button"
+        className="btn-ghost"
+        onClick={() => { setOpen(false); setName(""); }}
+      >
         Cancel
       </button>
       {err && <span className="form-error" role="alert">{err}</span>}
