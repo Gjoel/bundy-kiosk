@@ -112,7 +112,6 @@ export default function Kiosk({ onSwitchTab }) {
 
   return (
     <div className="container">
-      {/* Top bar with tabs (unchanged) */}
       <div className="header">
         <h1>Bundy Clock – Kiosk</h1>
         <div className="tabs" aria-label="mode tabs">
@@ -123,7 +122,7 @@ export default function Kiosk({ onSwitchTab }) {
 
       {diag && <div className="pill" style={{ marginBottom: 10 }}>{diag}</div>}
 
-      {/* Toolbar: bubble search (half width) + clearer time */}
+      {/* Toolbar: bubble search + time bubble (NO add employee) */}
       <div className="toolbar">
         <input
           type="text"
@@ -134,7 +133,7 @@ export default function Kiosk({ onSwitchTab }) {
           aria-label="Search employees"
           autoComplete="off"
         />
-        <ClockChip />
+        <ClockBubble />
       </div>
 
       {loading ? (
@@ -166,14 +165,13 @@ export default function Kiosk({ onSwitchTab }) {
   );
 }
 
-/* ── Time chip ───────────────────────── */
-function ClockChip() {
+/* ── Time bubble ─────────────────────── */
+function ClockBubble() {
   const [text, setText] = useState("");
 
   useEffect(() => {
     const tick = () => {
       const now = new Date();
-      // Example: Wed 29 Oct · 11:56 AM
       const fmt = now.toLocaleString(undefined, {
         weekday: "short",
         day: "2-digit",
