@@ -2,6 +2,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
+
+
+
 /** ====== SCHEMA MAPPING ====== */
 const SCHEMA = {
   employeesTable: "employees",
@@ -177,5 +180,77 @@ export default function Kiosk({ onSwitchTab }) {
         </div>
       )}
     </div>
+  );
+}
+function ClockChip() {
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      // Example: Wed, 29 Oct • 10:55
+      const fmt = now.toLocaleString(undefined, {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      setText(fmt.replace(",", ""));
+    };
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => clearInterval(id);
+  }, []);
+
+  return <div className="clock" aria-live="polite">{text}</div>;
+}
+
+function QuickAddEmployee({ onAdded }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) { setErr("Name required"); return; }
+    setBusy(true); setErr("");
+    const { error } = await supabase
+      .from("employees")
+      .insert({ name: trimmed, active: true });
+    setBusy(false);
+    if (error) { setErr(error.message); return; }
+    setName(""); setOpen(false);
+    if (typeof onAdded === "function") onAdded();
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="add-btn" onClick={() => setOpen(true)}>
+        + Add Employee
+      </button>
+    );
+  }
+
+  return (
+    <form className="add-emp-form" onSubmit={handleSubmit}>
+      <input
+        className="add-emp-input"
+        type="text"
+        placeholder="Full name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        aria-label="New employee name"
+      />
+      <button type="submit" className="add-btn" disabled={busy}>
+        {busy ? "Saving..." : "Save"}
+      </button>
+      <button type="button" className="btn-ghost" onClick={() => { setOpen(false); setName(""); }}>
+        Cancel
+      </button>
+      {err && <span className="form-error" role="alert">{err}</span>}
+    </form>
   );
 }
