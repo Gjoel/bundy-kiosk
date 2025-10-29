@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { isAdminUnlocked, checkPinAndUnlock, lockAdmin } from "./adminPin.js";
 import { exportCSVAllEmployees } from './lib/exportCSVAllEmployees'; // adjust path if needed
-import { exportCSVAllEmployees } from "../lib/exportCSVAllEmployees";
 
 
 async function handleExport() {
