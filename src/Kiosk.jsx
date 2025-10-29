@@ -126,17 +126,18 @@ export default function Kiosk({ onSwitchTab }) {
         </div>
       )}
 
-      {/* Toolbar: search (half width), clearer time, quick add employee */}
+      {/* Toolbar: compact search (half width) + clearer time */}
       <div className="toolbar">
         <input
-          className="search-input"
+          type="text"
+          className="input search-input"
           placeholder="Search your name…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           aria-label="Search employees"
+          autoComplete="off"
         />
         <ClockChip />
-        <QuickAddEmployee onAdded={load} />
       </div>
 
       {loading ? (
@@ -154,103 +155,4 @@ export default function Kiosk({ onSwitchTab }) {
               <div key={id} className="emp-card">
                 <div className="emp-top">
                   <div className="emp-name">{name}</div>
-                  <span className="status-pill">{statusTxt}</span>
-                </div>
-                <button className={btnClass} onClick={() => handleClock(emp)}>
-                  {label}
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ── Time chip ───────────────────────── */
-function ClockChip() {
-  const [text, setText] = useState("");
-
-  useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      // Example: Wed 29 Oct 10:55
-      const fmt = now.toLocaleString(undefined, {
-        weekday: "short",
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      setText(fmt.replace(",", ""));
-    };
-    tick();
-    const id = setInterval(tick, 15000);
-    return () => clearInterval(id);
-  }, []);
-
-  return <div className="clock" aria-live="polite">{text}</div>;
-}
-
-/* ── Quick add employee ─────────────── */
-function QuickAddEmployee({ onAdded }) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed) { setErr("Name required"); return; }
-    setBusy(true); setErr("");
-
-    const payload = {
-      [SCHEMA.employeeName]: trimmed,
-      [SCHEMA.employeeActive]: true,
-    };
-
-    const { error } = await supabase
-      .from(SCHEMA.employeesTable)
-      .insert(payload);
-
-    setBusy(false);
-    if (error) { setErr(error.message); return; }
-
-    setName(""); setOpen(false);
-    if (typeof onAdded === "function") onAdded();
-  }
-
-  if (!open) {
-    return (
-      <button type="button" className="add-btn" onClick={() => setOpen(true)}>
-        + Add Employee
-      </button>
-    );
-  }
-
-  return (
-    <form className="add-emp-form" onSubmit={handleSubmit}>
-      <input
-        className="add-emp-input"
-        type="text"
-        placeholder="Full name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        aria-label="New employee name"
-      />
-      <button type="submit" className="add-btn" disabled={busy}>
-        {busy ? "Saving..." : "Save"}
-      </button>
-      <button
-        type="button"
-        className="btn-ghost"
-        onClick={() => { setOpen(false); setName(""); }}
-      >
-        Cancel
-      </button>
-      {err && <span className="form-error" role="alert">{err}</span>}
-    </form>
-  );
-}
+                  <span className="status-pill">{sta
