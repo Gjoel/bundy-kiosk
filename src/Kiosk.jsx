@@ -1,5 +1,5 @@
 // src/Kiosk.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 /** ====== SCHEMA MAPPING ====== */
@@ -32,11 +32,13 @@ function normalizeDir(raw) {
 
 export default function Kiosk({ onSwitchTab }) {
   const [employees, setEmployees] = useState([]);
-  const [statusMap, setStatusMap] = useState({}); // { [empId]: 'in' | 'out' }
+  const [statusMap, setStatusMap] = useState({});
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
   const [diag, setDiag] = useState("");
+  const inputRef = useRef(null);
 
+  // Load employees + latest status
   async function load() {
     setLoading(true);
     setDiag("");
@@ -45,6 +47,7 @@ export default function Kiosk({ onSwitchTab }) {
         .from(SCHEMA.employeesTable)
         .select([SCHEMA.employeeId, SCHEMA.employeeName, SCHEMA.employeeActive].join(","))
         .order(SCHEMA.employeeName, { ascending: true });
+
       if (e1) throw new Error(`employees/select: ${e1.message}`);
 
       const activeEmps = (emps || []).filter((e) => e[SCHEMA.employeeActive] !== false);
@@ -83,6 +86,7 @@ export default function Kiosk({ onSwitchTab }) {
   }
 
   useEffect(() => { load(); }, []);
+  useEffect(() => { inputRef.current?.focus(); }, [loading]);
 
   const filtered = useMemo(() => {
     const s = (q || "").toLowerCase().trim();
@@ -111,7 +115,7 @@ export default function Kiosk({ onSwitchTab }) {
   }
 
   return (
-    <div className="container">
+    <div className="container" data-page="kiosk">
       <div className="header">
         <h1>Bundy Clock – Kiosk</h1>
         <div className="tabs" aria-label="mode tabs">
@@ -122,24 +126,49 @@ export default function Kiosk({ onSwitchTab }) {
 
       {diag && <div className="pill" style={{ marginBottom: 10 }}>{diag}</div>}
 
-      {/* Toolbar: bubble search + time bubble (NO add employee) */}
-      <div className="toolbar">
-        <input
-          type="text"
-          className="input search-bubble"
-          placeholder="Search your name…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          aria-label="Search employees"
-          autoComplete="off"
-        />
+      {/* Toolbar: bubble search + time bubble (NO Add Employee UI here) */}
+      <div className="toolbar" role="group" aria-label="Kiosk controls">
+        <div className="search-wrap">
+          {/* magnifier */}
+          <svg className="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10.5 3a7.5 7.5 0 1 1-5.304 12.804l-3.1 3.1a1 1 0 0 1-1.414-1.414l3.1-3.1A7.5 7.5 0 0 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11Z"/>
+          </svg>
+
+          <input
+            ref={inputRef}
+            type="text"
+            className="search-input input search-bubble"
+            placeholder="Search your name…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Search employees"
+            aria-controls="emp-list"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="none"
+            spellCheck={false}
+          />
+
+          {q ? (
+            <button
+              type="button"
+              className="clear-btn"
+              aria-label="Clear search"
+              onClick={() => setQ("")}
+              title="Clear"
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
+
         <ClockBubble />
       </div>
 
       {loading ? (
         <div className="pill" style={{ display: "inline-block" }}>Loading…</div>
       ) : (
-        <div className="emp-grid">
+        <div id="emp-list" className="emp-grid">
           {filtered.map((emp) => {
             const id = emp[SCHEMA.employeeId];
             const name = emp[SCHEMA.employeeName];
