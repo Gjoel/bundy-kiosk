@@ -126,7 +126,7 @@ export default function Kiosk({ onSwitchTab }) {
         </div>
       )}
 
-      {/* Toolbar: compact search (half width) + clearer time */}
+      {/* Toolbar: bubble search (half width) + clearer time */}
       <div className="toolbar">
         <input
           type="text"
@@ -176,7 +176,7 @@ function ClockChip() {
   useEffect(() => {
     const tick = () => {
       const now = new Date();
-      // Example: Wed 29 Oct 11:32 AM
+      // Example: Wed 29 Oct 11:56 AM
       const fmt = now.toLocaleString(undefined, {
         weekday: "short",
         day: "2-digit",
