@@ -155,4 +155,42 @@ export default function Kiosk({ onSwitchTab }) {
               <div key={id} className="emp-card">
                 <div className="emp-top">
                   <div className="emp-name">{name}</div>
-                  <span className="status-pill">{sta
+                  <span className="status-pill">{statusTxt}</span>
+                </div>
+                <button className={btnClass} onClick={() => handleClock(emp)}>
+                  {label}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Time chip ───────────────────────── */
+function ClockChip() {
+  const [text, setText] = useState("");
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      // Example: Wed 29 Oct 11:32 AM
+      const fmt = now.toLocaleString(undefined, {
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+      setText(fmt.replace(",", ""));
+    };
+    tick();
+    const id = setInterval(tick, 15000);
+    return () => clearInterval(id);
+  }, []);
+
+  return <div className="clock" aria-live="polite">{text}</div>;
+}
