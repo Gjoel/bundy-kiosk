@@ -1,5 +1,5 @@
 // src/Kiosk.jsx
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 /** ====== SCHEMA MAPPING ====== */
@@ -30,6 +30,28 @@ function normalizeDir(raw) {
   return undefined;
 }
 
+/** Hard kill-switch for any “Add Employee” control injected by other components */
+function hideAddEmployeeButtons(root) {
+  if (!root) return;
+  const isAdd = (el) => /(^|\+?\s*)add\s+employee/i.test((el.textContent || "").trim());
+  const markHide = (el) => { if (isAdd(el)) el.style.setProperty("display", "none", "important"); };
+
+  root.querySelectorAll('button, a, [role="button"]').forEach(markHide);
+
+  // Catch future renders
+  const mo = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (!(node instanceof HTMLElement)) continue;
+        if (node.matches?.('button, a, [role="button"]')) markHide(node);
+        node.querySelectorAll?.('button, a, [role="button"]').forEach(markHide);
+      }
+    }
+  });
+  mo.observe(root, { childList: true, subtree: true });
+  return () => mo.disconnect();
+}
+
 export default function Kiosk({ onSwitchTab }) {
   const [employees, setEmployees] = useState([]);
   const [statusMap, setStatusMap] = useState({});
@@ -37,6 +59,13 @@ export default function Kiosk({ onSwitchTab }) {
   const [loading, setLoading] = useState(true);
   const [diag, setDiag] = useState("");
   const inputRef = useRef(null);
+
+  // Hide “Add Employee” anywhere inside the kiosk page container
+  useEffect(() => {
+    const root = document.querySelector('[data-page="kiosk"]') || document.body;
+    const stop = hideAddEmployeeButtons(root);
+    return () => stop?.();
+  }, []);
 
   // Load employees + latest status
   async function load() {
@@ -96,7 +125,7 @@ export default function Kiosk({ onSwitchTab }) {
 
   async function handleClock(emp) {
     const empId = emp[SCHEMA.employeeId];
-    const last = statusMap[empId]; // 'in' | 'out' | undefined
+    const last = statusMap[empId];
     const nextDir = last === "in" ? (SCHEMA.dirOut[0] || "out") : (SCHEMA.dirIn[0] || "in");
 
     try {
@@ -106,7 +135,6 @@ export default function Kiosk({ onSwitchTab }) {
       };
       const { error } = await supabase.from(SCHEMA.eventsTable).insert([payload]);
       if (error) throw new Error(`events/insert: ${error.message}`);
-
       setStatusMap((prev) => ({ ...prev, [empId]: last === "in" ? "out" : "in" }));
     } catch (err) {
       console.error("Clock error:", err);
@@ -126,10 +154,8 @@ export default function Kiosk({ onSwitchTab }) {
 
       {diag && <div className="pill" style={{ marginBottom: 10 }}>{diag}</div>}
 
-      {/* Toolbar: bubble search + time bubble (NO Add Employee UI here) */}
       <div className="toolbar" role="group" aria-label="Kiosk controls">
         <div className="search-wrap">
-          {/* magnifier */}
           <svg className="search-icon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M10.5 3a7.5 7.5 0 1 1-5.304 12.804l-3.1 3.1a1 1 0 0 1-1.414-1.414l3.1-3.1A7.5 7.5 0 0 1 10.5 3Zm0 2a5.5 5.5 0 1 0 0 11a5.5 5.5 0 0 0 0-11Z"/>
           </svg>
@@ -194,10 +220,8 @@ export default function Kiosk({ onSwitchTab }) {
   );
 }
 
-/* ── Time bubble ─────────────────────── */
 function ClockBubble() {
   const [text, setText] = useState("");
-
   useEffect(() => {
     const tick = () => {
       const now = new Date();
@@ -215,6 +239,5 @@ function ClockBubble() {
     const id = setInterval(tick, 15000);
     return () => clearInterval(id);
   }, []);
-
   return <div className="clock-bubble" aria-live="polite">{text}</div>;
 }
