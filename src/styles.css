@@ -52,3 +52,56 @@
   text-align: center;
   box-shadow: 0 1px 0 rgba(16, 24, 40, 0.03);
 }
+/* --- Safety kill switch: hide any Add Employee UI anywhere --- */
+.add-btn,
+button.add-employee,
+[data-role="add-employee"] {
+  display: none !important;
+}
+
+/* --- Bubble search styling (applies to both older/newer class names) --- */
+.input.search-bubble,
+.input.search-input {
+  flex: 1 1 50%;
+  min-width: 320px;
+  max-width: 720px;
+
+  height: 56px;
+  padding: 0 18px;
+
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 16px;
+  font-size: 16px;
+  line-height: 56px;
+
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.03);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+}
+.input.search-bubble::placeholder,
+.input.search-input::placeholder { color: #98a2b3; }
+.input.search-bubble:focus,
+.input.search-input:focus {
+  border-color: #2563eb;
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.15),
+    0 1px 0 rgba(16, 24, 40, 0.03);
+  transform: translateY(-1px);
+}
+
+/* --- Matching time bubble (covers old/new class names) --- */
+.clock-bubble,
+.clock {
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  min-width: 240px;
+  text-align: center;
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.03);
+}
