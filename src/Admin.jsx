@@ -2,21 +2,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { isAdminUnlocked, checkPinAndUnlock, lockAdmin } from "./adminPin.js";
-import { exportCSVAllEmployees } from './lib/exportCSVAllEmployees'; // adjust path if needed
 
-
-async function handleExport() {
-  // assume you already have fromDate/toDate (Date objects) in state
-  const start = new Date(fromDate); start.setHours(0,0,0,0);
-  const end = new Date(toDate);     end.setHours(23,59,59,999);
-  await exportCSVAllEmployees(start.toISOString(), end.toISOString(), 'Australia/Sydney');
-}
-
-// in your JSX:
-<button onClick={handleExport}>Export CSV (All Employees)</button>
-
-
-/** ====== SCHEMA MAPPING ====== */
+/** ====== SCHEMA MAPPING (edit if your column names differ) ====== */
 const SCHEMA = {
   employeesTable: "employees",
   employeeId: "id",
@@ -29,16 +16,18 @@ const SCHEMA = {
   eventDirection: "direction",
   eventCreatedAt: "created_at",
 
-  dirIn: ["in", "clock_in", "clocked_in"],
-  dirOut: ["out", "clock_out", "clocked_out"],
+  // Strings we’ll treat as IN/OUT
+  dirIn: ["in", "clock_in", "clocked_in", "start", "clockin"],
+  dirOut: ["out", "clock_out", "clocked_out", "stop", "clockout"],
 };
-/** ============================ */
+/** =============================================================== */
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
+// ---------- small helpers ----------
 function pad2(n) { return String(n).padStart(2, "0"); }
 function toLocalParts(ts) {
   const d = new Date(ts);
@@ -51,6 +40,20 @@ function toLocalParts(ts) {
   };
 }
 function hhmmNoLeading(hh, mm) { return String(parseInt(`${hh}${mm}`, 10)); }
+function addDays(d, delta) { const x = new Date(d); x.setDate(x.getDate() + delta); return x; }
+function ymd(d) { return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+function dmy(d) { return `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`; }
+
+// Build an inclusive list of dates between two yyyy-mm-dd strings
+function enumerateDatesInclusive(fromStr, toStr) {
+  const start = new Date(`${fromStr}T00:00:00`);
+  const end   = new Date(`${toStr}T00:00:00`);
+  const out = [];
+  for (let d = start; d <= end; d = addDays(d, 1)) {
+    out.push({ iso: ymd(d), hdr: dmy(d) });
+  }
+  return out;
+}
 
 export default function Admin({ onSwitchTab }) {
   // ORG
@@ -87,7 +90,7 @@ export default function Admin({ onSwitchTab }) {
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
 
-  // Export
+  // Export date range (yyyy-mm-dd from <input type="date">)
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
@@ -121,6 +124,7 @@ export default function Admin({ onSwitchTab }) {
   useEffect(() => { resolveOrgId(); }, []);
   useEffect(() => { load(); }, [orgId]);
 
+  // Which employees are shown (and exported)
   const visible = useMemo(
     () => showInactive ? employees : employees.filter((e) => e[SCHEMA.employeeActive] !== false),
     [employees, showInactive]
@@ -175,22 +179,7 @@ export default function Admin({ onSwitchTab }) {
     } catch (e) { console.error(e); alert("Delete failed"); }
   }
 
-  // Add single
-  async function addSingle(e) {
-    e.preventDefault();
-    if (!admin) { alert("Unlock with PIN first"); return; }
-    if (!orgId) { alert("Missing org_id. Set VITE_ORG_ID in .env or add settings('org_id')."); return; }
-    const name = (newName || "").trim();
-    if (!name) { alert("Name required"); return; }
-    try {
-      const { error } = await supabase.from(SCHEMA.employeesTable)
-        .insert([{ [SCHEMA.employeeName]: name, [SCHEMA.employeeActive]: true, [SCHEMA.employeeOrgId]: orgId }]);
-      if (error) throw error;
-      setNewName(""); await load();
-    } catch (e) { console.error(e); alert("Add failed"); }
-  }
-
-  // ===== CSV IMPORT (fixed quotes) =====
+  // ===== CSV IMPORT (robust quotes) =====
   function resetImportInfo() { setImportInfo({ total: 0, inserted: 0, updated: 0, skipped: 0, errors: 0, lastError: "" }); }
 
   function parseCSV(text) {
@@ -265,21 +254,25 @@ export default function Admin({ onSwitchTab }) {
     } finally { setImportBusy(false); e.target.value = ""; }
   }
 
-  // ===== Export (pivot) =====
+  // ===== Export (now includes ALL currently visible employees, even with zero events) =====
   function download(filename, text) {
     const blob = new Blob([text], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url; a.download = filename; a.style.display = "none";
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
-  function buildCsvPivot(rowsByEmpDate, uniqueDates) {
-    const row1 = ["employee_name"]; for (const d of uniqueDates) row1.push(d, d, d, d);
-    const row2 = [""]; for (let i = 0; i < uniqueDates.length; i++) row2.push("In", "Out", "In", "Out");
+
+  // Header: employee_name + for each date: In, Out, In, Out (two pairs across)
+  function buildCsvPivot(rowsByEmpDate, dateHeaders) {
+    const row1 = ["employee_name"];
+    for (const d of dateHeaders) row1.push(d.hdr, d.hdr, d.hdr, d.hdr);
+    const row2 = [""]; for (let i = 0; i < dateHeaders.length; i++) row2.push("In", "Out", "In", "Out");
+
     const lines = [row1, row2];
     for (const [empName, byDate] of rowsByEmpDate) {
       const line = [empName];
-      for (const d of uniqueDates) {
-        const pairs = byDate.get(d) || [];
+      for (const d of dateHeaders) {
+        const pairs = byDate.get(d.iso) || [];
         const p1 = pairs[0] || ["", ""], p2 = pairs[1] || ["", ""];
         line.push(p1[0] || "", p1[1] || "", p2[0] || "", p2[1] || "");
       }
@@ -287,59 +280,97 @@ export default function Admin({ onSwitchTab }) {
     }
     return lines.map(arr => arr.join(",")).join("\n") + "\n";
   }
-  function toCSV_Pivot(employees, evs) {
-    const nameById = new Map(employees.map(e => [e[SCHEMA.employeeId], e[SCHEMA.employeeName]]));
-    const uniqueDatesSet = new Set(); const tempByKey = new Map();
+
+  function toCSV_Pivot_AllEmployees(employeesForExport, evs, dateHeaders) {
+    // Map id -> name
+    const nameById = new Map(
+      employeesForExport.map(e => [e[SCHEMA.employeeId], e[SCHEMA.employeeName]])
+    );
+
+    // Pre-populate rowsByEmpDate with ALL employees (ensures blank rows appear)
+    const rowsByEmpDate = new Map(); // name -> Map(isoDate -> [ [in,out], [in,out] ])
+    for (const e of employeesForExport) {
+      rowsByEmpDate.set(e[SCHEMA.employeeName], new Map());
+    }
+
+    // Collect events per employee per date
     const isIn  = (s) => SCHEMA.dirIn.includes(String(s).toLowerCase());
     const isOut = (s) => SCHEMA.dirOut.includes(String(s).toLowerCase());
 
+    const tempByKey = new Map(); // `${empId}|${isoDate}` -> events[]
     for (const ev of evs || []) {
-      const p = toLocalParts(ev[SCHEMA.eventCreatedAt]);
-      const dateIso = `${p.y}-${p.m}-${p.d}`; const dateHdr = `${p.d}/${p.m}/${p.y}`;
-      uniqueDatesSet.add(dateHdr);
-      const id = ev[SCHEMA.eventEmployeeId]; const key = `${id}|${dateIso}`;
+      const parts = toLocalParts(ev[SCHEMA.eventCreatedAt]);
+      const iso = `${parts.y}-${parts.m}-${parts.d}`;
+      const empId = ev[SCHEMA.eventEmployeeId];
+      const key = `${empId}|${iso}`;
       if (!tempByKey.has(key)) tempByKey.set(key, []);
-      tempByKey.get(key).push({ dir: ev[SCHEMA.eventDirection], hh: p.hh, mm: p.mm });
+      tempByKey.get(key).push({ dir: ev[SCHEMA.eventDirection], hh: parts.hh, mm: parts.mm });
     }
 
-    const rowsByEmpDate = new Map();
+    // Pair IN/OUT per date, keep at most 2 pairs for the layout
     for (const [key, arr] of tempByKey) {
-      const [id, dateIso] = key.split("|"); const [y, m, d] = dateIso.split("-");
-      const dateHdr = `${d}/${m}/${y}`; const empName = nameById.get(id) || "";
+      const [empId, iso] = key.split("|");
+      const empName = nameById.get(empId);
+      if (!empName) continue;
+
+      // sort by time just in case
+      arr.sort((a,b) => (a.hh+a.mm).localeCompare(b.hh+b.mm));
+
       let openIn = null; const pairs = [];
       for (const item of arr) {
-        if (isIn(item.dir)) openIn = hhmmNoLeading(item.hh, item.mm);
-        else if (isOut(item.dir) && openIn != null) {
-          pairs.push([openIn, hhmmNoLeading(item.hh, item.mm)]); openIn = null;
-          if (pairs.length === 2) break;
+        if (isIn(item.dir)) {
+          openIn = hhmmNoLeading(item.hh, item.mm);
+        } else if (isOut(item.dir)) {
+          if (openIn != null) {
+            pairs.push([openIn, hhmmNoLeading(item.hh, item.mm)]);
+            openIn = null;
+            if (pairs.length === 2) break; // cap at two pairs per day for this layout
+          } else {
+            // an OUT with no prior IN – include as blank IN
+            pairs.push(["", hhmmNoLeading(item.hh, item.mm)]);
+            if (pairs.length === 2) break;
+          }
         }
       }
-      if (!rowsByEmpDate.has(empName)) rowsByEmpDate.set(empName, new Map());
-      rowsByEmpDate.get(empName).set(dateHdr, pairs);
+      if (openIn != null && pairs.length < 2) pairs.push([openIn, ""]);
+
+      // attach to rows map
+      const byDate = rowsByEmpDate.get(empName) || new Map();
+      byDate.set(iso, pairs);
+      rowsByEmpDate.set(empName, byDate);
     }
 
-    const uniqueDates = Array.from(uniqueDatesSet)
-      .sort((a, b) => a.split("/").reverse().join("").localeCompare(b.split("/").reverse().join("")));
-    return buildCsvPivot(rowsByEmpDate, uniqueDates);
+    return buildCsvPivot(rowsByEmpDate, dateHeaders);
   }
+
   async function exportCSV() {
     if (!admin) { alert("Unlock admin to export"); return; }
     if (!from || !to) { alert("Select From and To dates"); return; }
+
     try {
-      const fromIso = new Date(from).toISOString();
-      const toEnd = new Date(to); toEnd.setDate(toEnd.getDate() + 1);
-      const toIso = toEnd.toISOString();
+      // Dates to query (inclusive start, exclusive end)
+      const fromIsoStart = new Date(`${from}T00:00:00`).toISOString();
+      const toIsoExclusive = addDays(new Date(`${to}T00:00:00`), 1).toISOString();
+
+      // Fetch events in range
       const { data: evs, error } = await supabase
         .from(SCHEMA.eventsTable)
         .select([SCHEMA.eventEmployeeId, SCHEMA.eventDirection, SCHEMA.eventCreatedAt].join(","))
-        .gte(SCHEMA.eventCreatedAt, fromIso)
-        .lt(SCHEMA.eventCreatedAt, toIso)
+        .gte(SCHEMA.eventCreatedAt, fromIsoStart)
+        .lt(SCHEMA.eventCreatedAt, toIsoExclusive)
         .order(SCHEMA.eventCreatedAt, { ascending: true });
       if (error) throw error;
 
-      const csv = toCSV_Pivot(employees, evs);
+      // Build date columns from the chosen range so everyone appears
+      const dateHeaders = enumerateDatesInclusive(from, to);
+
+      // Export exactly who you see in the table (active only by default)
+      const csv = toCSV_Pivot_AllEmployees(visible, evs, dateHeaders);
       download(`bundy_export_${from}_to_${to}.csv`, csv);
-    } catch (e) { console.error("Export failed:", e); alert("Export failed. Check schema & date range."); }
+    } catch (e) {
+      console.error("Export failed:", e);
+      alert("Export failed. Check schema & date range.");
+    }
   }
 
   return (
@@ -416,58 +447,58 @@ export default function Admin({ onSwitchTab }) {
             <col className="col-status" />
             <col className="col-acts" />
           </colgroup>
-        <thead>
-          <tr><th>Name</th><th>Status</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <tr><td colSpan={3} style={{ padding: 22 }}>Loading…</td></tr>
-          ) : visible.length === 0 ? (
-            <tr><td colSpan={3} style={{ padding: 22, color: "#64748b" }}>No employees</td></tr>
-          ) : (
-            visible.map((emp) => {
-              const id = emp[SCHEMA.employeeId];
-              const name = emp[SCHEMA.employeeName];
-              const inactive = emp[SCHEMA.employeeActive] === false;
-              const isEditing = editingId === id;
+          <thead>
+            <tr><th>Name</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={3} style={{ padding: 22 }}>Loading…</td></tr>
+            ) : visible.length === 0 ? (
+              <tr><td colSpan={3} style={{ padding: 22, color: "#64748b" }}>No employees</td></tr>
+            ) : (
+              visible.map((emp) => {
+                const id = emp[SCHEMA.employeeId];
+                const name = emp[SCHEMA.employeeName];
+                const inactive = emp[SCHEMA.employeeActive] === false;
+                const isEditing = editingId === id;
 
-              return (
-                <tr key={id} className={inactive ? "row-muted" : ""}>
-                  <td>
-                    {!isEditing ? (
-                      <span style={{ display: "inline-block", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {name}
-                      </span>
-                    ) : (
-                      <div style={{ display: "flex", gap: 10 }}>
-                        <input className="input-sm" value={editingName} onChange={(e) => setEditingName(e.target.value)}
-                               style={{ width: 360, fontSize: "18px", padding: "10px 12px" }} />
-                        <button className="btn-chip" onClick={() => saveRename(emp)}>Save</button>
-                        <button className="btn-chip" onClick={cancelRename}>Cancel</button>
-                      </div>
-                    )}
-                  </td>
-                  <td>{inactive ? "Inactive" : "Active"}</td>
-                  <td>
-                    {admin ? (
-                      !isEditing ? (
-                        <>
-                          <button className="btn-chip" onClick={() => startRename(emp)}>Rename</button>
-                          <button className="btn-chip warn" onClick={() => onDeactivate(emp)}>Deactivate</button>
-                          <button className="btn-chip danger" onClick={() => onDelete(emp)}>Delete</button>
-                        </>
+                return (
+                  <tr key={id} className={inactive ? "row-muted" : ""}>
+                    <td>
+                      {!isEditing ? (
+                        <span style={{ display: "inline-block", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {name}
+                        </span>
                       ) : (
-                        <span style={{ color: "#64748b" }}>Editing…</span>
-                      )
-                    ) : (
-                      <span style={{ color: "#64748b" }}>Unlock to manage</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })
-          )}
-        </tbody>
+                        <div style={{ display: "flex", gap: 10 }}>
+                          <input className="input-sm" value={editingName} onChange={(e) => setEditingName(e.target.value)}
+                                 style={{ width: 360, fontSize: "18px", padding: "10px 12px" }} />
+                          <button className="btn-chip" onClick={() => saveRename(emp)}>Save</button>
+                          <button className="btn-chip" onClick={cancelRename}>Cancel</button>
+                        </div>
+                      )}
+                    </td>
+                    <td>{inactive ? "Inactive" : "Active"}</td>
+                    <td>
+                      {admin ? (
+                        !isEditing ? (
+                          <>
+                            <button className="btn-chip" onClick={() => startRename(emp)}>Rename</button>
+                            <button className="btn-chip warn" onClick={() => onDeactivate(emp)}>Deactivate</button>
+                            <button className="btn-chip danger" onClick={() => onDelete(emp)}>Delete</button>
+                          </>
+                        ) : (
+                          <span style={{ color: "#64748b" }}>Editing…</span>
+                        )
+                      ) : (
+                        <span style={{ color: "#64748b" }}>Unlock to manage</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
         </table>
 
         {/* Export panel */}
@@ -475,7 +506,7 @@ export default function Admin({ onSwitchTab }) {
           <label>From: <input className="input-sm" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
           <label>To: <input className="input-sm" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
           <button className="tab" onClick={exportCSV}>Export CSV</button>
-          <span className="input-hint">Exports to your requested layout (employee row, dates with In/Out pairs, HHMM).</span>
+          <span className="input-hint">Exports everyone currently visible. Dates span the selected range; employees with no events get blank cells.</span>
         </div>
       </div>
     </div>
