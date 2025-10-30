@@ -30,28 +30,6 @@ function normalizeDir(raw) {
   return undefined;
 }
 
-/** Hard kill-switch for any “Add Employee” control injected by other components */
-function hideAddEmployeeButtons(root) {
-  if (!root) return;
-  const isAdd = (el) => /(^|\+?\s*)add\s+employee/i.test((el.textContent || "").trim());
-  const markHide = (el) => { if (isAdd(el)) el.style.setProperty("display", "none", "important"); };
-
-  root.querySelectorAll('button, a, [role="button"]').forEach(markHide);
-
-  // Catch future renders
-  const mo = new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      for (const node of m.addedNodes) {
-        if (!(node instanceof HTMLElement)) continue;
-        if (node.matches?.('button, a, [role="button"]')) markHide(node);
-        node.querySelectorAll?.('button, a, [role="button"]').forEach(markHide);
-      }
-    }
-  });
-  mo.observe(root, { childList: true, subtree: true });
-  return () => mo.disconnect();
-}
-
 export default function Kiosk({ onSwitchTab }) {
   const [employees, setEmployees] = useState([]);
   const [statusMap, setStatusMap] = useState({});
@@ -59,13 +37,6 @@ export default function Kiosk({ onSwitchTab }) {
   const [loading, setLoading] = useState(true);
   const [diag, setDiag] = useState("");
   const inputRef = useRef(null);
-
-  // Hide “Add Employee” anywhere inside the kiosk page container
-  useEffect(() => {
-    const root = document.querySelector('[data-page="kiosk"]') || document.body;
-    const stop = hideAddEmployeeButtons(root);
-    return () => stop?.();
-  }, []);
 
   // Load employees + latest status
   async function load() {
@@ -117,11 +88,20 @@ export default function Kiosk({ onSwitchTab }) {
   useEffect(() => { load(); }, []);
   useEffect(() => { inputRef.current?.focus(); }, [loading]);
 
+  const kioskEmployees = useMemo(
+    () =>
+      employees.filter((emp) => {
+        const label = (emp[SCHEMA.employeeName] || "").trim();
+        return label && !/add\s+employee/i.test(label);
+      }),
+    [employees]
+  );
+
   const filtered = useMemo(() => {
     const s = (q || "").toLowerCase().trim();
-    if (!s) return employees;
-    return employees.filter((e) => (e[SCHEMA.employeeName] || "").toLowerCase().includes(s));
-  }, [employees, q]);
+    if (!s) return kioskEmployees;
+    return kioskEmployees.filter((e) => (e[SCHEMA.employeeName] || "").toLowerCase().includes(s));
+  }, [kioskEmployees, q]);
 
   async function handleClock(emp) {
     const empId = emp[SCHEMA.employeeId];
@@ -145,7 +125,7 @@ export default function Kiosk({ onSwitchTab }) {
   return (
     <div className="container" data-page="kiosk">
       <div className="header">
-        <>Bundy Clock – Kiosk123</h1>
+        <h1 className="page-title">Bundy Clock – Kiosk</h1>
         <div className="tabs" aria-label="mode tabs">
           <button className="tab active" onClick={() => onSwitchTab?.("kiosk")}>Kiosk</button>
           <button className="tab" onClick={() => onSwitchTab?.("admin")}>Admin</button>

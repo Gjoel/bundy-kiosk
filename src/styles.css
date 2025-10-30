@@ -151,6 +151,12 @@ h1 {
   flex: 1 1 560px;
   min-width: 320px;
   max-width: 720px;
+  transition: transform .2s ease, filter .2s ease;
+}
+[data-page="kiosk"] .search-wrap:focus-within,
+[data-page="kiosk"] .search-wrap:hover {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 12px 20px rgba(15, 23, 42, 0.1));
 }
 
 /* ---- Bubble search input ---- */
@@ -161,19 +167,27 @@ h1 {
   height: 56px;
   padding-left: 44px;   /* space for magnifier */
   padding-right: 42px;  /* space for clear btn  */
-  background: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   border: 1px solid var(--border-2);
   border-radius: 16px;
   font-size: 16px;
   line-height: 56px;
   outline: none;
-  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.03);
-  transition: border-color .15s ease, box-shadow .15s ease, transform .05s ease;
+  color: var(--ink-2);
+  box-shadow:
+    0 1px 0 rgba(16, 24, 40, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: border-color .15s ease, box-shadow .15s ease, background .2s ease;
 }
 [data-page="kiosk"] .search-input::placeholder,
 [data-page="kiosk"] .input.search-bubble::placeholder,
 [data-page="kiosk"] .input.search-input::placeholder {
   color: #98a2b3;
+}
+[data-page="kiosk"] .search-input:hover,
+[data-page="kiosk"] .input.search-bubble:hover,
+[data-page="kiosk"] .input.search-input:hover {
+  border-color: #cbd5f5;
 }
 [data-page="kiosk"] .search-input:focus,
 [data-page="kiosk"] .input.search-bubble:focus,
@@ -181,8 +195,8 @@ h1 {
   border-color: var(--brand);
   box-shadow:
     0 0 0 3px var(--brand-weak),
-    0 1px 0 rgba(16, 24, 40, 0.03);
-  transform: translateY(-1px);
+    0 12px 30px -22px rgba(37, 99, 235, 0.7);
+  background: #ffffff;
 }
 
 /* ---- Magnifier icon ---- */
@@ -197,6 +211,10 @@ h1 {
   pointer-events: none;
   fill: currentColor;
   color: #64748b; /* slate-500 */
+}
+[data-page="kiosk"] .search-wrap:focus-within .search-icon {
+  opacity: 0.9;
+  color: var(--brand);
 }
 
 /* ---- Clear button ---- */
@@ -215,7 +233,14 @@ h1 {
   color: #64748b;
   cursor: pointer;
 }
-[data-page="kiosk"] .clear-btn:hover { background: #f3f4f6; }
+[data-page="kiosk"] .clear-btn:hover {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--brand);
+}
+[data-page="kiosk"] .clear-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
 
 /* ---- Time bubble (matches old rounded look) ---- */
 [data-page="kiosk"] .clock-bubble,
@@ -225,9 +250,8 @@ h1 {
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-               "Liberation Mono", "Courier New", monospace;
-  letter-spacing: 0.3px;
+  font-size: 16px;
+  font-family: inherit;
   white-space: nowrap;
   min-width: 240px;
   text-align: center;
@@ -274,18 +298,6 @@ h1 {
   border: 1px solid var(--border);
 }
 
-/* ---- HARD KILL-SWITCH: hide ANY add-employee controls ONLY on the Kiosk page ---- */
-[data-page="kiosk"] .add-btn,
-[data-page="kiosk"] .add-employee,
-[data-page="kiosk"] button.add-employee,
-[data-page="kiosk"] [data-role="add-employee"],
-[data-page="kiosk"] [data-test="add-employee"],
-[data-page="kiosk"] [aria-label="Add employee"],
-[data-page="kiosk"] [aria-label="Add Employee"],
-[data-page="kiosk"] :is(button, a)[href*="add-employee"] {
-  display: none !important;
-}
-
 /* ---------- Responsive tweaks ---------- */
 @media (max-width: 560px){
   .container { margin: 20px auto; }
@@ -293,14 +305,3 @@ h1 {
   [data-page="kiosk"] .clock-bubble { min-width: 0; width: 100%; text-align: left; }
   [data-page="kiosk"] .search-wrap { flex-basis: 100%; max-width: 100%; }
 }
-
-/* =============================================================================
-   OPTIONAL: temporary global hide for any lingering add-employee controls
-   (Uncomment only if something still slips through outside the kiosk container)
-   ========================================================================== */
-/*
-.add-btn,
-.add-employee,
-button.add-employee,
-[data-role="add-employee"] { display: none !important; }
-*/
