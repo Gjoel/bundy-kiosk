@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState } from "react";
-import "./styles.css";
+// import "./styles.css";
 import Kiosk from "./Kiosk.jsx";
 import Admin from "./Admin.jsx";
 import { exportCSVAllEmployees } from "./lib/exportCSVAllEmployees";
