@@ -145,7 +145,7 @@ export default function Kiosk({ onSwitchTab }) {
   return (
     <div className="container" data-page="kiosk">
       <div className="header">
-        <>Bundy Clock – Kiosk123</h1>
+        <>Bundy Clock – Kiosk</h1>
         <div className="tabs" aria-label="mode tabs">
           <button className="tab active" onClick={() => onSwitchTab?.("kiosk")}>Kiosk</button>
           <button className="tab" onClick={() => onSwitchTab?.("admin")}>Admin</button>
