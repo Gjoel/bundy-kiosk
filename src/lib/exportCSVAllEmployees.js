@@ -24,6 +24,8 @@ export async function exportCSVAllEmployees({
   const { data, error } = await supabase
     .from(table)
     .select(selectCols)
+    .neq(activeCol, false)      // Exclude deactivated employees
+    .is("deleted_at", null)     // Exclude soft-deleted employees
     .order(nameCol, { ascending: true });
 
   if (error) {

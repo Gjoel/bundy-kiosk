@@ -9,6 +9,7 @@ const SCHEMA = {
   employeeId: "id",
   employeeName: "name",
   employeeActive: "active",
+  employeeDeletedAt: "deleted_at",
   employeeOrgId: "org_id",
 
   eventsTable: "events",
@@ -16,7 +17,7 @@ const SCHEMA = {
   eventDirection: "direction",
   eventCreatedAt: "created_at",
 
-  // Strings we’ll treat as IN/OUT
+  // Strings we'll treat as IN/OUT
   dirIn: ["in", "clock_in", "clocked_in", "start", "clockin"],
   dirOut: ["out", "clock_out", "clocked_out", "stop", "clockout"],
 };
@@ -107,7 +108,7 @@ export default function Admin({ onSwitchTab }) {
     try {
       let q = supabase
         .from(SCHEMA.employeesTable)
-        .select([SCHEMA.employeeId, SCHEMA.employeeName, SCHEMA.employeeActive, SCHEMA.employeeOrgId].join(","))
+        .select([SCHEMA.employeeId, SCHEMA.employeeName, SCHEMA.employeeActive, SCHEMA.employeeDeletedAt, SCHEMA.employeeOrgId].join(","))
         .order(SCHEMA.employeeName, { ascending: true });
       if (orgId) q = q.eq(SCHEMA.employeeOrgId, orgId);
       const { data, error } = await q;
@@ -126,7 +127,9 @@ export default function Admin({ onSwitchTab }) {
 
   // Which employees are shown (and exported)
   const visible = useMemo(
-    () => showInactive ? employees : employees.filter((e) => e[SCHEMA.employeeActive] !== false),
+    () => showInactive
+      ? employees
+      : employees.filter((e) => e[SCHEMA.employeeActive] !== false && e[SCHEMA.employeeDeletedAt] == null),
     [employees, showInactive]
   );
 
